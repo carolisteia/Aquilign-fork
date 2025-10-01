@@ -292,50 +292,74 @@ class SentenceBoundaryDataset(Dataset):
 # -------------------------------------------------------------------
 # Metrics computation
 # -------------------------------------------------------------------
+# def compute_metrics(eval_pred):
+#     """
+#     Compute evaluation metrics for HuggingFace Trainer.
+
+#     Args:
+#         eval_pred: tuple (predictions, labels) from model evaluation
+
+#     Returns:
+#         dict: accuracy, precision, recall, f1 scores
+#     """
+#     print("Starting eval")
+#     metric1 = evaluate.load("accuracy")
+#     metric2 = evaluate.load("recall")
+#     metric3 = evaluate.load("precision")
+#     metric4 = evaluate.load("f1")
+
+#     predictions, labels = eval_pred
+#     predictions = np.argmax(predictions, axis=2)  # token-level class predictions
+
+#     # Flatten arrays
+#     predictions = np.array(predictions, dtype='int32').flatten()
+#     labels = np.array(labels, dtype='int32').flatten()
+
+#     # Replace -100 (ignored tokens) by 0 so metrics do not break
+#     labels = [0 if x == -100 else x for x in labels]
+
+#     # Compute metrics
+#     acc = metric1.compute(predictions=predictions, references=labels)
+#     recall = metric2.compute(predictions=predictions, references=labels, average=None)
+#     precision = metric3.compute(predictions=predictions, references=labels, average=None)
+#     f1 = metric4.compute(predictions=predictions, references=labels, average=None)
+
+#     # Flatten dicts into lists
+#     recall_l = []
+#     [recall_l.extend(v) for k, v in recall.items()]
+#     precision_l = []
+#     [precision_l.extend(v) for k, v in precision.items()]
+#     f1_l = []
+#     [f1_l.extend(v) for k, v in f1.items()]
+
+#     print("Eval finished")
+#     return {
+#         "accuracy": acc,
+#         "recall": recall_l,
+#         "precision": precision_l,
+#         "f1": f1_l
+#     }
+from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
+
 def compute_metrics(eval_pred):
-    """
-    Compute evaluation metrics for HuggingFace Trainer.
+    logits, labels = eval_pred
+    predictions = np.argmax(logits, axis=-1)
 
-    Args:
-        eval_pred: tuple (predictions, labels) from model evaluation
+    # ⚠️ Important : filtrer les labels ignorés (-100)
+    labels = labels.flatten()
+    predictions = predictions.flatten()
+    mask = labels != -100
+    labels = labels[mask]
+    predictions = predictions[mask]
 
-    Returns:
-        dict: accuracy, precision, recall, f1 scores
-    """
-    print("Starting eval")
-    metric1 = evaluate.load("accuracy")
-    metric2 = evaluate.load("recall")
-    metric3 = evaluate.load("precision")
-    metric4 = evaluate.load("f1")
+    precision = precision_score(labels, predictions, average="macro")
+    recall = recall_score(labels, predictions, average="macro")
+    f1 = f1_score(labels, predictions, average="macro")
+    acc = accuracy_score(labels, predictions)
 
-    predictions, labels = eval_pred
-    predictions = np.argmax(predictions, axis=2)  # token-level class predictions
-
-    # Flatten arrays
-    predictions = np.array(predictions, dtype='int32').flatten()
-    labels = np.array(labels, dtype='int32').flatten()
-
-    # Replace -100 (ignored tokens) by 0 so metrics do not break
-    labels = [0 if x == -100 else x for x in labels]
-
-    # Compute metrics
-    acc = metric1.compute(predictions=predictions, references=labels)
-    recall = metric2.compute(predictions=predictions, references=labels, average=None)
-    precision = metric3.compute(predictions=predictions, references=labels, average=None)
-    f1 = metric4.compute(predictions=predictions, references=labels, average=None)
-
-    # Flatten dicts into lists
-    recall_l = []
-    [recall_l.extend(v) for k, v in recall.items()]
-    precision_l = []
-    [precision_l.extend(v) for k, v in precision.items()]
-    f1_l = []
-    [f1_l.extend(v) for k, v in f1.items()]
-
-    print("Eval finished")
     return {
         "accuracy": acc,
-        "recall": recall_l,
-        "precision": precision_l,
-        "f1": f1_l
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
     }

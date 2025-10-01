@@ -178,7 +178,8 @@ def training_trainer(
     # Model
     model = AutoModelForTokenClassification.from_pretrained(modelName, num_labels=3)
 
-    # Training args
+
+      #Training args
     training_args = TrainingArguments(
         output_dir=f"results_{out_name}",
         evaluation_strategy="epoch",
