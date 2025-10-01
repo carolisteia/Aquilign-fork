@@ -23,12 +23,11 @@ The training pipeline includes:
 
 Noise augmentation
 ------------------
-By default, no noise is applied (clean training only).  
-To enable noise augmentation, add the flag:
+Noise is handled *per language*, via the LANG_NOISE_CONFIG dictionary
+(see tok_trainer_functions.py).  
+By default, each language has its own noise settings:
+    - e.g. French gets heavier noise, Portuguese very light noise, etc.
 
-    --noise --noise_prob 0.3 --noise_level medium
-
-Noise is applied **only to the training set**.  
 Dev and eval datasets always remain clean.
 
 Outputs
@@ -41,24 +40,25 @@ The script writes:
 
 Usage example
 -------------
-Train clean model:
+Train clean French model:
     python train_tokenizer.py \
         -m bert-base-multilingual-cased \
-        -n experiment_clean \
-        -t data/train.json \
-        -d data/dev.json \
-        -e data/eval.json \
-        -ep 10 -b 8
-
-Train with noise augmentation:
-    python train_tokenizer.py \
-        -m bert-base-multilingual-cased \
-        -n experiment_noisy \
-        -t data/train.json \
-        -d data/dev.json \
-        -e data/eval.json \
+        -n experiment_fr \
+        -t data/fr/train.json \
+        -d data/fr/dev.json \
+        -e data/fr/eval.json \
         -ep 10 -b 8 \
-        --noise --noise_prob 0.3 --noise_level medium
+        --lang fr
+
+Train clean Portuguese model:
+    python train_tokenizer.py \
+        -m bert-base-multilingual-cased \
+        -n experiment_pt \
+        -t data/pt/train.json \
+        -d data/pt/dev.json \
+        -e data/pt/eval.json \
+        -ep 10 -b 8 \
+        --lang pt
 """
 
 import sys
@@ -115,10 +115,7 @@ def training_trainer(modelName,
                      save_every,
                      early_stopping,
                      keep_punct=True,
-                     apply_noise=False,
-                     noise_prob=0.3,
-                     noise_level="medium",
-                     debug_noise=False): # change to True to see first 5lines 
+                     debug_noise=False):  # print up to 5 noisy examples per language
     """
     Train and evaluate a BERT model for segmentation.
 
@@ -134,15 +131,15 @@ def training_trainer(modelName,
         save_every (int): save every N epochs
         early_stopping (int): early stopping patience
         keep_punct (bool): keep punctuation in preprocessing
-        apply_noise (bool): apply noise to training data
-        noise_prob (float): probability of noising a training sample
-        noise_level (str): 'light' | 'medium' | 'heavy'
+        debug_noise (bool): if True, print some noisy samples
     """
 
     # Load corpora
     train_lines = utils.json_corpus_to_lines(train_dataset, keep_punct)
     dev_lines = utils.json_corpus_to_lines(dev_dataset, keep_punct)
-    eval_lines, delimiter = utils.json_corpus_to_lines(eval_dataset, keep_punct, return_delimiter=True)
+    eval_lines, delimiter = utils.json_corpus_to_lines(
+        eval_dataset, keep_punct, return_delimiter=True
+    )
     eval_data_lang = eval_dataset.split("/")[-2]
 
     # Model + tokenizer
@@ -157,23 +154,19 @@ def training_trainer(modelName,
     train_dataset = trainer_functions.SentenceBoundaryDataset(
         train_texts_and_labels,
         tokenizer,
-        apply_noise_flag=apply_noise,    # noise only if --noise is set
-        noise_prob=noise_prob,
-        noise_level=noise_level,
+        lang=args.lang,              # language-specific noise config
         debug_noise=debug_noise
     )
-
-    # 💡 Guidance:
-    # - By default, apply_noise_flag=False → dataset stays clean.
-    # - Run with --noise to enable augmentation.
-    # - OR remove/comment the three noise-related arguments entirely
-    #   if you never want noise in your pipeline.
 
     print("Dev corpus preparation")
     dev_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
         dev_lines, tokenizer=tokenizer, delimiter=delimiter
     )
-    dev_dataset = trainer_functions.SentenceBoundaryDataset(dev_texts_and_labels, tokenizer)
+    dev_dataset = trainer_functions.SentenceBoundaryDataset(
+        dev_texts_and_labels,
+        tokenizer,
+        lang=args.lang               # dev set stays clean
+    )
 
     # HuggingFace training args
     training_args = TrainingArguments(
@@ -281,30 +274,17 @@ if __name__ == '__main__':
     parser.add_argument("-bf16", "--bfloat16", action=argparse.BooleanOptionalAction, default=False,
                         help="Use bfloat16 precision if supported")
 
-    # Noise-related arguments (default OFF)
-    parser.add_argument(
-        "--noise",
-        action="store_true",
-        help="Apply noise augmentation to training dataset (default: OFF). "
-             "Use --noise to enable. Dev and eval sets are always kept clean."
-    )
-    parser.add_argument(
-        "--noise_prob",
-        type=float,
-        default=0.3,
-        help="Probability of applying noise to a training example (only used if --noise)."
-    )
-    parser.add_argument(
-        "--noise_level",
-        type=str,
-        default="medium",
-        choices=["light", "medium", "heavy"],
-        help="Noise intensity level (only used if --noise)."
-    )
+    # Debugging noise only
     parser.add_argument(
         "--debug_noise",
         action="store_true",
-        help="Debug mode: print up to 5 noisy examples to check augmentation."
+        help="Debug mode: print up to 5 noisy examples per language."
+    )
+    parser.add_argument(
+        "--lang",
+        type=str,
+        required=True,
+        help="Language code for the dataset (e.g. fr, pt, la, es, it, ca, en)."
     )
 
     args = parser.parse_args()
@@ -323,13 +303,5 @@ if __name__ == '__main__':
         out_name=args.out_name,
         save_every=args.save_every,
         early_stopping=args.early_stopping,
-
-        #  Noise options (harmless if args.noise=False)
-        apply_noise=args.noise,
-        noise_prob=args.noise_prob,
-        noise_level=args.noise_level,
-        debug_noise=args.debug_noise 
-
-        # To train clean only: run without --noise (default OFF),
-        # OR remove/comment these three arguments entirely.
+        debug_noise=args.debug_noise
     )
