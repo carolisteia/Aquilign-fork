@@ -144,16 +144,42 @@ def training_trainer(modelName,
     # -------------------------------------------------------------------
     # Tokenization + alignment
     # -------------------------------------------------------------------
-   
-    train_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
-        train_lines, tokenizer=tokenizer, delimiter=delimiter
+    # Training dataset (with optional noise)
+    train_dataset = SentenceBoundaryDataset(
+        train_texts_and_labels,
+        tokenizer=tokenizer,
+        apply_noise_flag=args.noise,         # 👈 Active si --noise
+        noise_prob=args.noise_prob or 0.3,   # 👈 Probabilité
+        noise_level=args.noise_level or "medium",  # 👈 Niveau
+        debug_noise=args.debug_noise,        # 👈 Pour afficher [NOISE DEBUG]
+        lang=args.lang                       # 👈 Pour info/logs
 )
-    dev_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
-    dev_lines, tokenizer=tokenizer, delimiter=delimiter
+
+# Dev dataset (always clean)
+    dev_dataset = SentenceBoundaryDataset(
+        dev_texts_and_labels,
+        tokenizer=tokenizer,
+        apply_noise_flag=False,
+        lang=args.lang
 )
-    eval_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
-        eval_lines, tokenizer=tokenizer, delimiter=delimiter
+
+# Eval dataset (always clean)
+eval_dataset = SentenceBoundaryDataset(
+    eval_texts_and_labels,
+    tokenizer=tokenizer,
+    apply_noise_flag=False,
+    lang=args.lang
 )
+
+#     train_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
+#         train_lines, tokenizer=tokenizer, delimiter=delimiter
+# )
+#     dev_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
+#     dev_lines, tokenizer=tokenizer, delimiter=delimiter
+# )
+#     eval_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
+#         eval_lines, tokenizer=tokenizer, delimiter=delimiter
+# )
 
 
     # -------------------------------------------------------------------
