@@ -343,3 +343,65 @@ def convertToSubWordsSentencesAndLabels(corpus, tokenizer, delimiter="£",  verb
                                     'attention_mask': toks['attention_mask'].squeeze(),
                                     'labels': label})
     return out_toks_and_labels
+from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
+import numpy as np
+
+def evaluate_tokenization_with_regexp(eval_lines, delimiter="£"):
+    """
+    Évaluation naïve par regexp : 
+    compare la présence du délimiteur dans les exemples à une segmentation attendue.
+    """
+    y_true = []
+    y_pred = []
+
+    for ex in eval_lines:
+        text = ex["example"]
+
+        # vérité terrain : les positions avec délimiteur
+        true_labels = [1 if delimiter in tok else 0 for tok in tokenize_words(text, delimiter)]
+        # prédiction naïve : "toujours pas de délimiteur" (baseline)
+        pred_labels = [0] * len(true_labels)
+
+        y_true.extend(true_labels)
+        y_pred.extend(pred_labels)
+
+    precision = precision_score(y_true, y_pred, average="macro", zero_division=0)
+    recall = recall_score(y_true, y_pred, average="macro", zero_division=0)
+    f1 = f1_score(y_true, y_pred, average="macro", zero_division=0)
+    acc = accuracy_score(y_true, y_pred)
+
+    return {
+        "regexp_accuracy": acc,
+        "regexp_precision": precision,
+        "regexp_recall": recall,
+        "regexp_f1": f1,
+    }
+
+
+def evaluate_tokenization_with_bert(trainer, eval_dataset, tokenizer, delimiter="£"):
+    """
+    Évaluation avec le modèle BERT entraîné :
+    on passe l'ensemble d'évaluation au Trainer et on calcule les métriques.
+    """
+    preds_output = trainer.predict(eval_dataset)
+    logits = preds_output.predictions
+    labels = preds_output.label_ids
+
+    predictions = np.argmax(logits, axis=-1).flatten()
+    labels = labels.flatten()
+
+    mask = labels != -100
+    labels = labels[mask]
+    predictions = predictions[mask]
+
+    precision = precision_score(labels, predictions, average="macro", zero_division=0)
+    recall = recall_score(labels, predictions, average="macro", zero_division=0)
+    f1 = f1_score(labels, predictions, average="macro", zero_division=0)
+    acc = accuracy_score(labels, predictions)
+
+    return {
+        "bert_accuracy": acc,
+        "bert_precision": precision,
+        "bert_recall": recall,
+        "bert_f1": f1,
+    }
