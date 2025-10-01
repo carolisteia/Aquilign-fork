@@ -151,6 +151,8 @@ def training_trainer(modelName,
     train_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
         train_lines, tokenizer=tokenizer, delimiter=delimiter
     )
+    print("DEBUG sample train_texts_and_labels:", train_texts_and_labels[:2])
+    
     train_dataset = trainer_functions.SentenceBoundaryDataset(
         train_texts_and_labels,
         tokenizer,
