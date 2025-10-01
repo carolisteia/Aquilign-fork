@@ -144,18 +144,17 @@ def training_trainer(modelName,
     # -------------------------------------------------------------------
     # Tokenization + alignment
     # -------------------------------------------------------------------
-    print("Preparing train corpus...")
+   
     train_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
-        train_texts, tokenizer=tokenizer, delimiter=delimiter
-    )
-    print("Preparing dev corpus...")
+        train_lines, tokenizer=tokenizer, delimiter=delimiter
+)
     dev_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
-        dev_texts, tokenizer=tokenizer, delimiter=delimiter
-    )
-    print("Preparing eval corpus...")
+    dev_lines, tokenizer=tokenizer, delimiter=delimiter
+)
     eval_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
-        eval_texts, tokenizer=tokenizer, delimiter=delimiter
-    )
+        eval_lines, tokenizer=tokenizer, delimiter=delimiter
+)
+
 
     # -------------------------------------------------------------------
     # Build datasets
