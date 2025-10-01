@@ -190,38 +190,83 @@ def unicode_normalize_corpus(data:list) -> str:
 # -------------------------------------------------------------------
 # JSON corpus loader
 # -------------------------------------------------------------------
-def json_corpus_to_lines(corpus: str, keep_punct, return_delimiter: bool = False):
+# def json_corpus_to_lines(corpus: str, keep_punct, return_delimiter: bool = False):
+#     """
+#     Load JSON corpus, validate schema, and return examples.
+
+#     Args
+#     ----
+#     corpus (str): path to dataset JSON
+#     keep_punct (bool): whether to preserve punctuation
+#     return_delimiter (bool): if True, return (examples, delimiter)
+
+#     Returns
+#     -------
+#     list[dict] or (list[dict], str)
+#     Each dict has at least: {"example": <str>, "lang": <str>}
+#     """
+#     with open(corpus, "r", encoding="utf-8") as corpus_file:
+#         examples = json.load(corpus_file)
+
+#         if keep_punct is False:
+#             examples = remove_punctuation_from_corpus(examples)
+
+#     examples = unicode_normalize_corpus(examples)
+
+#     # Validate with schema
+#     with open("aquilign/tokenizer/dataSchema.json", "r") as input_file:
+#         JsonSchema = json.load(input_file)
+#     test_data(examples, corpus, schema=JsonSchema)
+
+#     if return_delimiter:
+#         return examples["examples"], examples["metadata"]["delimiter"]
+#     else:
+#         return examples["examples"]
+
+def json_corpus_to_lines(
+    path: str,
+    keep_punct=True,
+    return_delimiter=False,
+    apply_noise_flag=False,
+    noise_prob=0.3,
+    noise_level="medium",
+    debug_noise=False,
+):
     """
-    Load JSON corpus, validate schema, and return examples.
-
-    Args
-    ----
-    corpus (str): path to dataset JSON
-    keep_punct (bool): whether to preserve punctuation
-    return_delimiter (bool): if True, return (examples, delimiter)
-
-    Returns
-    -------
-    list[dict] or (list[dict], str)
-    Each dict has at least: {"example": <str>, "lang": <str>}
+    Load a JSON corpus and convert to list of examples, optionally applying noise.
     """
-    with open(corpus, "r", encoding="utf-8") as corpus_file:
-        examples = json.load(corpus_file)
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
 
-        if keep_punct is False:
-            examples = remove_punctuation_from_corpus(examples)
+    delimiter = data.get("delimiter", "£")
 
-    examples = unicode_normalize_corpus(examples)
+    # Optionally remove punctuation
+    if keep_punct is False:
+        data = remove_punctuation_from_corpus(data)
 
-    # Validate with schema
+    data = unicode_normalize_corpus(data)
+
+    # Validation schema
     with open("aquilign/tokenizer/dataSchema.json", "r") as input_file:
         JsonSchema = json.load(input_file)
-    test_data(examples, corpus, schema=JsonSchema)
+    test_data(data, path, schema=JsonSchema)
+
+    examples = []
+    for entry in data["examples"]:
+        text = entry["example"]
+        lang = entry.get("lang", "unk")
+
+        # NEW: noise injection
+        if apply_noise_flag and random.random() < noise_prob:
+            text, _ = apply_noise(text, None, noise_level=noise_level)
+            if debug_noise:
+                print(f"[NOISE DEBUG: {lang.upper()} prob={noise_prob} level={noise_level}] {text[:150]}...")
+
+        examples.append({"example": text, "lang": lang})
 
     if return_delimiter:
-        return examples["examples"], examples["metadata"]["delimiter"]
-    else:
-        return examples["examples"]
+        return examples, delimiter
+    return examples
 
 
 def test_data(data:dict, label:str, schema:dict) -> None:
