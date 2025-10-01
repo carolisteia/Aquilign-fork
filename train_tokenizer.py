@@ -183,16 +183,16 @@ eval_texts = [e["example"] for e in eval_lines]
 
 
 
-    # Model + tokenizer
-    model = AutoModelForTokenClassification.from_pretrained(modelName, num_labels=3)
-    tokenizer = BertTokenizer.from_pretrained(modelName, max_length=10)
+# Model + tokenizer
+model = AutoModelForTokenClassification.from_pretrained(modelName, num_labels=3)
+tokenizer = BertTokenizer.from_pretrained(modelName, max_length=10)
 
     # Prepare datasets
-    print("Train corpus preparation")
-    train_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
+print("Train corpus preparation")
+train_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
         train_lines, tokenizer=tokenizer, delimiter=delimiter
     )
-    print("DEBUG sample train_texts_and_labels:", train_texts_and_labels[:2])
+print("DEBUG sample train_texts_and_labels:", train_texts_and_labels[:2])
 
     # train_dataset = trainer_functions.SentenceBoundaryDataset(
     #     train_texts_and_labels,
