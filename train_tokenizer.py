@@ -274,7 +274,26 @@ if __name__ == '__main__':
     parser.add_argument("-bf16", "--bfloat16", action=argparse.BooleanOptionalAction, default=False,
                         help="Use bfloat16 precision if supported")
 
-    # Debugging noise only
+        # Noise-related arguments (default OFF)
+    parser.add_argument(
+        "--noise",
+        action="store_true",
+        help="Apply noise augmentation to training dataset (default: OFF). "
+             "Use --noise to enable. Dev and eval sets are always kept clean."
+    )
+    parser.add_argument(
+        "--noise_prob",
+        type=float,
+        default=0.3,
+        help="Probability of applying noise to a training example (only used if --noise)."
+    )
+    parser.add_argument(
+        "--noise_level",
+        type=str,
+        default="medium",
+        choices=["light", "medium", "heavy"],
+        help="Noise intensity level (only used if --noise)."
+    )
     parser.add_argument(
         "--debug_noise",
         action="store_true",
@@ -286,6 +305,7 @@ if __name__ == '__main__':
         required=True,
         help="Language code for the dataset (e.g. fr, pt, la, es, it, ca, en)."
     )
+
 
     args = parser.parse_args()
     use_cpu = (args.device == "cpu")
