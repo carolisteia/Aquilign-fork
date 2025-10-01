@@ -132,10 +132,14 @@ def training_trainer(
     # Training corpus: always clean here
     train_lines = utils.json_corpus_to_lines(train_dataset, keep_punct=True)
 
-    # Extract raw texts
-    train_texts = [e["example"] for e in train_lines]
-    dev_texts = [e["example"] for e in dev_lines]
-    eval_texts = [e["example"] for e in eval_lines]
+    # # Extract raw texts
+    # train_texts = [e["example"] for e in train_lines]
+    # dev_texts = [e["example"] for e in dev_lines]
+    # eval_texts = [e["example"] for e in eval_lines]
+
+    train_texts = train_lines
+    dev_texts = dev_lines
+    eval_texts = eval_lines
 
     # Initialize tokenizer
     tokenizer = AutoTokenizer.from_pretrained(modelName)
