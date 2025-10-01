@@ -134,13 +134,54 @@ def training_trainer(modelName,
         debug_noise (bool): if True, print some noisy samples
     """
 
-    # Load corpora
-    train_lines = utils.json_corpus_to_lines(train_dataset, keep_punct)
-    dev_lines = utils.json_corpus_to_lines(dev_dataset, keep_punct)
-    eval_lines, delimiter = utils.json_corpus_to_lines(
-        eval_dataset, keep_punct, return_delimiter=True
-    )
-    eval_data_lang = eval_dataset.split("/")[-2]
+   # -------------------------------------------------------------------
+# # Load corpora
+# # -------------------------------------------------------------------
+# # Training set: may include artificial noise if --noise is enabled.
+# # Noise parameters (probability, level, debug) are passed from CLI args.
+# train_lines = utils.json_corpus_to_lines(
+#     train_dataset,
+#     keep_punct,
+#     apply_noise_flag=args.noise,     # enable noise only if --noise
+#     noise_prob=args.noise_prob,      # probability of noising a sample
+#     noise_level=args.noise_level,    # noise intensity: light/medium/heavy
+#     debug_noise=args.debug_noise     # print a few noisy examples if enabled
+# )
+
+# # Dev and eval sets: always kept clean (no noise applied).
+# dev_lines = utils.json_corpus_to_lines(dev_dataset, keep_punct)
+# eval_lines, delimiter = utils.json_corpus_to_lines(
+#     eval_dataset,
+#     keep_punct,
+#     return_delimiter=True
+# )
+
+# Load corpora
+# -------------------------------------------------------------------
+# # Training set: raw text lines only (noise will be handled later in Dataset).
+# train_lines = utils.json_corpus_to_lines(train_dataset, keep_punct)
+
+# # Dev and eval sets: always kept clean.
+# dev_lines = utils.json_corpus_to_lines(dev_dataset, keep_punct)
+# eval_lines, delimiter = utils.json_corpus_to_lines(
+#     eval_dataset,
+#     keep_punct,
+#     return_delimiter=True
+# )
+
+# eval_data_lang = eval_dataset.split("/")[-2]
+
+# Load corpora
+train_lines = utils.json_corpus_to_lines(train_dataset, keep_punct)
+dev_lines = utils.json_corpus_to_lines(dev_dataset, keep_punct)
+eval_lines, delimiter = utils.json_corpus_to_lines(eval_dataset, keep_punct, return_delimiter=True)
+
+# Extract only the text for training
+train_texts = [e["example"] for e in train_lines]
+dev_texts = [e["example"] for e in dev_lines]
+eval_texts = [e["example"] for e in eval_lines]
+
+
 
     # Model + tokenizer
     model = AutoModelForTokenClassification.from_pretrained(modelName, num_labels=3)
@@ -152,23 +193,65 @@ def training_trainer(modelName,
         train_lines, tokenizer=tokenizer, delimiter=delimiter
     )
     print("DEBUG sample train_texts_and_labels:", train_texts_and_labels[:2])
-    
+
+    # train_dataset = trainer_functions.SentenceBoundaryDataset(
+    #     train_texts_and_labels,
+    #     tokenizer,
+    #     lang=args.lang,              # language-specific noise config
+    #     debug_noise=debug_noise
+    # )
+
+    # print("Dev corpus preparation")
+    # dev_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
+    #     dev_lines, tokenizer=tokenizer, delimiter=delimiter
+    # )
+    # dev_dataset = trainer_functions.SentenceBoundaryDataset(
+    #     dev_texts_and_labels,
+    #     tokenizer,
+    #     lang=args.lang               # dev set stays clean
+    # )
+
+#     train_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
+#         train_texts, tokenizer=tokenizer, delimiter=delimiter
+# )
+#     dev_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
+#         dev_texts, tokenizer=tokenizer, delimiter=delimiter
+# )
+
+#     train_dataset = trainer_functions.SentenceBoundaryDataset(
+#         train_texts_and_labels,
+#         tokenizer,
+#         lang=args.lang,
+#         debug_noise=args.debug_noise
+# )
+
+#     dev_dataset = trainer_functions.SentenceBoundaryDataset(
+#         dev_texts_and_labels,
+#         tokenizer,
+#         lang=args.lang
+# )
+# Prepare datasets
+    print("Train corpus preparation")
+    train_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
+      train_texts, tokenizer=tokenizer, delimiter=delimiter
+)
     train_dataset = trainer_functions.SentenceBoundaryDataset(
         train_texts_and_labels,
         tokenizer,
-        lang=args.lang,              # language-specific noise config
-        debug_noise=debug_noise
-    )
+        lang=args.lang,
+        debug_noise=args.debug_noise
+)
 
     print("Dev corpus preparation")
     dev_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
-        dev_lines, tokenizer=tokenizer, delimiter=delimiter
-    )
+        dev_texts, tokenizer=tokenizer, delimiter=delimiter
+)
     dev_dataset = trainer_functions.SentenceBoundaryDataset(
         dev_texts_and_labels,
         tokenizer,
-        lang=args.lang               # dev set stays clean
-    )
+        lang=args.lang
+)
+
 
     # HuggingFace training args
     training_args = TrainingArguments(
@@ -224,13 +307,21 @@ def training_trainer(modelName,
     print(f"Full metrics: {best_step_metrics}")
 
     # Final eval
+    # eval_results = evaluation.run_eval(
+    #     data=eval_lines,
+    #     model_path=best_model_path,
+    #     tokenizer_name=tokenizer.name_or_path,
+    #     verbose=False,
+    #     delimiter=delimiter
+    # )
     eval_results = evaluation.run_eval(
-        data=eval_lines,
+        data=eval_texts,
         model_path=best_model_path,
         tokenizer_name=tokenizer.name_or_path,
         verbose=False,
         delimiter=delimiter
-    )
+)
+
 
     # Rename best checkpoint
     new_best_path = f"results_{out_name}/epoch{num_train_epochs}_bs{batch_size}/best"

@@ -1,9 +1,27 @@
+# -*- coding: utf-8 -*-
+"""
+utils.py
+--------
+Utility functions for loading and preparing corpora
+for sentence/clause segmentation training.
+
+Changes:
+--------
+- Added optional noise injection at corpus loading stage (train only).
+- Controlled by arguments: apply_noise_flag, noise_prob, noise_level.
+- Uses apply_noise() from aquilign.preproc.noise.
+
+"""
+
 import re
-import aquilign.preproc.tok_trainer_functions as functions
 import torch
 import jsonschema
 import json
 import unicodedata
+import random
+import aquilign.preproc.tok_trainer_functions as functions
+from aquilign.preproc.noise import apply_noise
+
 
 def tokenize(text,num):
     words = text.split(" ")
@@ -85,26 +103,126 @@ def unicode_normalize_corpus(data:list) -> str:
     data["examples"] = normalized_examples
     return data
 
-def json_corpus_to_lines(corpus:str, keep_punct, return_delimiter=False)-> list[dict]:
+# def json_corpus_to_lines(corpus:str, keep_punct, return_delimiter=False)-> list[dict]:
+#     """
+#     This function imports the json files and performs a first validation of the data structure. It returns
+#     the examples as a liste of dictionnaries with the example and its language information
+#     """
+#     with open(corpus, "r") as corpus_file:
+#         examples = json.load(corpus_file)
+#         if keep_punct is False:
+#             examples = remove_punctuation_from_corpus(examples)
+    
+#     examples = unicode_normalize_corpus(examples)
+#     # Let's perform some tests        
+#     with open("aquilign/tokenizer/dataSchema.json", "r") as input_file: 
+#         JsonSchema = json.load(input_file)
+#     test_data(examples, corpus, schema=JsonSchema)
+    
+#     if return_delimiter:
+#         return examples["examples"], examples["metadata"]["delimiter"]
+#     else:
+#         return examples["examples"]
+
+
+
+# # -------------------------------------------------------------------
+# # JSON corpus loader
+# # -------------------------------------------------------------------
+# def json_corpus_to_lines(
+#     path,
+#     keep_punct=True,
+#     return_delimiter=False,
+#     apply_noise_flag=False,
+#     noise_prob=0.3,
+#     noise_level="medium",
+#     debug_noise=False,
+# ):
+#     """
+#     Load a JSON corpus and convert to list of raw text examples.
+
+#     Args
+#     ----
+#     path (str): path to dataset JSON
+#     keep_punct (bool): whether to preserve punctuation (not used here)
+#     return_delimiter (bool): if True, return (examples, delimiter)
+#     apply_noise_flag (bool): if True, apply noise to some examples
+#     noise_prob (float): probability of applying noise to an example
+#     noise_level (str): noise intensity: 'light' | 'medium' | 'heavy'
+#     debug_noise (bool): print noisy samples for debugging
+
+#     Returns
+#     -------
+#     examples (list[str]) or (examples, delimiter)
+#     """
+
+#     with open(path, "r", encoding="utf-8") as f:
+#         data = json.load(f)
+
+#     delimiter = data.get("delimiter", "£")
+#     examples = []
+
+#     for entry in data["examples"]:
+#         text = entry["example"]
+#         lang = entry.get("lang", "unk")
+
+#         # -----------------------------------------------------------
+#         # NEW: Noise injection BEFORE tokenization
+#         # Only applied if apply_noise_flag=True
+#         # Each example has prob=noise_prob of being noised
+#         # -----------------------------------------------------------
+#         if apply_noise_flag and random.random() < noise_prob:
+#             text, _ = apply_noise(text, None, noise_level=noise_level)
+
+#             # Debug: print a truncated version of noisy sample
+#             if debug_noise:
+#                 print(
+#                     f"[NOISE DEBUG: {lang.upper()} | prob={noise_prob} | level={noise_level}] "
+#                     f"{text[:150]}..."
+#                 )
+
+#         examples.append(text)
+
+#     if return_delimiter:
+#         return examples, delimiter
+#     return examples
+
+# -------------------------------------------------------------------
+# JSON corpus loader
+# -------------------------------------------------------------------
+def json_corpus_to_lines(corpus: str, keep_punct, return_delimiter: bool = False):
     """
-    This function imports the json files and performs a first validation of the data structure. It returns
-    the examples as a liste of dictionnaries with the example and its language information
+    Load JSON corpus, validate schema, and return examples.
+
+    Args
+    ----
+    corpus (str): path to dataset JSON
+    keep_punct (bool): whether to preserve punctuation
+    return_delimiter (bool): if True, return (examples, delimiter)
+
+    Returns
+    -------
+    list[dict] or (list[dict], str)
+    Each dict has at least: {"example": <str>, "lang": <str>}
     """
-    with open(corpus, "r") as corpus_file:
+    with open(corpus, "r", encoding="utf-8") as corpus_file:
         examples = json.load(corpus_file)
+
         if keep_punct is False:
             examples = remove_punctuation_from_corpus(examples)
-    
+
     examples = unicode_normalize_corpus(examples)
-    # Let's perform some tests        
-    with open("aquilign/tokenizer/dataSchema.json", "r") as input_file: 
+
+    # Validate with schema
+    with open("aquilign/tokenizer/dataSchema.json", "r") as input_file:
         JsonSchema = json.load(input_file)
     test_data(examples, corpus, schema=JsonSchema)
-    
+
     if return_delimiter:
         return examples["examples"], examples["metadata"]["delimiter"]
     else:
         return examples["examples"]
+
 
 def test_data(data:dict, label:str, schema:dict) -> None:
     """
