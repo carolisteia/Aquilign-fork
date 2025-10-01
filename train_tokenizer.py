@@ -40,99 +40,107 @@ The script writes:
     - Evaluation results on the eval set
 """
 
-import sys
-import re
-import os
-import json
-import glob
-import argparse
-import jsonschema
 
-from transformers import (
-    BertTokenizer,
-    Trainer,
-    TrainingArguments,
-    AutoModelForTokenClassification,
-    set_seed,
-    TrainerCallback,
-    EarlyStoppingCallback,
-)
 
-# Project-specific modules
-import aquilign.preproc.tok_trainer_functions as trainer_functions
-import aquilign.preproc.eval as evaluation
-import aquilign.preproc.utils as utils
-from aquilign.preproc.tok_trainer_functions import LANG_NOISE_CONFIG
+"""
+train_tokenizer.py
+-------------------
+Train a segmentation model with HuggingFace Transformers.
+
+Steps:
+  - Load corpora (JSON format)
+  - Optionally apply noise augmentation for training
+  - Tokenize and prepare datasets
+  - Train with HuggingFace Trainer
+  - Evaluate model performance
+"""
 
 import os
-import glob
 import json
-import shutil
 import random
 import argparse
+import numpy as np
+import torch
 
 from transformers import (
+    AutoTokenizer,
     AutoModelForTokenClassification,
-    BertTokenizer,
     Trainer,
     TrainingArguments,
     EarlyStoppingCallback,
-    set_seed
+    TrainerCallback
 )
 
+import evaluate
+
+# Local imports
 import aquilign.preproc.utils as utils
-import aquilign.preproc.tok_trainer_functions as trainer_functions
-import aquilign.preproc.evaluation as evaluation
-from aquilign.preproc.trainer_callbacks import SaveEveryNEpochsCallback
+import aquilign.preproc.tok_trainer_functions as tok_utils
+
+from aquilign.preproc.tok_trainer_functions import (
+    SentenceBoundaryDataset,
+    compute_metrics,
+    LANG_NOISE_CONFIG
+)
+
+
+# -------------------------------------------------------------------
+# Custom callback: save every N epochs
+# -------------------------------------------------------------------
+class SaveEveryNEpochsCallback(TrainerCallback):
+    def __init__(self, save_every):
+        super().__init__()
+        self.save_every = save_every
+
+    def on_epoch_end(self, args, state, control, **kwargs):
+        if int(state.epoch) % self.save_every == 0:
+            control.should_save = True
+        else:
+            control.should_save = False
 
 
 # -------------------------------------------------------------------
 # Training function
 # -------------------------------------------------------------------
-def training_trainer(modelName,
-                     train_dataset,
-                     dev_dataset,
-                     eval_dataset,
-                     num_train_epochs,
-                     batch_size,
-                     logging_steps,
-                     use_cpu,
-                     bf_16,
-                     out_name,
-                     save_every,
-                     early_stopping,
-                     keep_punct=True,
-                     apply_noise=False,
-                     noise_prob=0.3,
-                     noise_level="medium",
-                     debug_noise=False,
-                     lang="fr"):
-    """
-    Train and evaluate a BERT model for sentence boundary detection.
-    """
+def training_trainer(
+    modelName,
+    train_dataset,
+    dev_dataset,
+    eval_dataset,
+    num_train_epochs,
+    batch_size,
+    logging_steps,
+    use_cpu,
+    bf_16,
+    out_name,
+    save_every,
+    early_stopping,
+    apply_noise,
+    noise_prob,
+    noise_level,
+    debug_noise,
+):
 
-    # -------------------------------------------------------------------
-    # Load corpora
-    # -------------------------------------------------------------------
-    print("Preparing corpora...")
-    train_lines = utils.json_corpus_to_lines(train_dataset, keep_punct)
-    dev_lines = utils.json_corpus_to_lines(dev_dataset, keep_punct)
-    eval_lines, delimiter = utils.json_corpus_to_lines(eval_dataset, keep_punct, return_delimiter=True)
+    print("Preparing train corpus...")
+
+    # Always clean for dev/eval
+    dev_lines = utils.json_corpus_to_lines(dev_dataset, keep_punct=True)
+    eval_lines, delimiter = utils.json_corpus_to_lines(
+        eval_dataset, keep_punct=True, return_delimiter=True
+    )
+
+    # Training corpus: always clean here
+    train_lines = utils.json_corpus_to_lines(train_dataset, keep_punct=True)
 
     # Extract raw texts
     train_texts = [e["example"] for e in train_lines]
     dev_texts = [e["example"] for e in dev_lines]
     eval_texts = [e["example"] for e in eval_lines]
 
-    # -------------------------------------------------------------------
-    # Model + tokenizer
-    # -------------------------------------------------------------------
-    model = AutoModelForTokenClassification.from_pretrained(modelName, num_labels=3)
-    tokenizer = BertTokenizer.from_pretrained(modelName)
+    # Initialize tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(modelName)
 
-    # -------------------------------------------------------------------
-    # Convert texts to subwords + labels
-    # -------------------------------------------------------------------
+    # Convert to subwords & labels
     train_texts_and_labels = utils.convertToSubWordsSentencesAndLabels(
         train_texts, tokenizer=tokenizer, delimiter=delimiter
     )
@@ -143,127 +151,84 @@ def training_trainer(modelName,
         eval_texts, tokenizer=tokenizer, delimiter=delimiter
     )
 
-    # -------------------------------------------------------------------
-    # Build datasets (SentenceBoundaryDataset handles noise inside)
-    # -------------------------------------------------------------------
-    train_dataset = trainer_functions.SentenceBoundaryDataset(
+    # HuggingFace Datasets
+    train_dataset = SentenceBoundaryDataset(
         train_texts_and_labels,
-        tokenizer=tokenizer,
-        lang=lang,
-        debug_noise=debug_noise,
-        apply_noise=apply_noise,
-        noise_prob=noise_prob,
-        noise_level=noise_level
+        tokenizer,
+        lang="fr",  # for now fixed, but args.lang can be passed
+        debug_noise=debug_noise
     )
-    dev_dataset = trainer_functions.SentenceBoundaryDataset(
+    dev_dataset = SentenceBoundaryDataset(
         dev_texts_and_labels,
-        tokenizer=tokenizer,
-        lang=lang
+        tokenizer,
+        lang="fr",
+        debug_noise=False
     )
-    eval_dataset = trainer_functions.SentenceBoundaryDataset(
+    eval_dataset = SentenceBoundaryDataset(
         eval_texts_and_labels,
-        tokenizer=tokenizer,
-        lang=lang
+        tokenizer,
+        lang="fr",
+        debug_noise=False
     )
 
-    # -------------------------------------------------------------------
-    # Training arguments
-    # -------------------------------------------------------------------
+    # Model
+    model = AutoModelForTokenClassification.from_pretrained(modelName, num_labels=3)
+
+    # Training args
     training_args = TrainingArguments(
-        output_dir=f"results_{out_name}/epoch{num_train_epochs}_bs{batch_size}",
-        num_train_epochs=num_train_epochs,
-        logging_strategy="epoch",
+        output_dir=f"results_{out_name}",
+        evaluation_strategy="epoch",
+        save_strategy="epoch",
+        learning_rate=5e-5,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
-        evaluation_strategy="epoch",
-        dataloader_num_workers=2,
+        num_train_epochs=num_train_epochs,
+        weight_decay=0.01,
+        logging_steps=logging_steps,
+        save_total_limit=2,
+        load_best_model_at_end=True,
+        metric_for_best_model="precision",
         bf16=bf_16,
-        save_strategy="epoch",
-        load_best_model_at_end=True
+        no_cuda=use_cpu,
     )
 
-    if use_cpu:
-        training_args.device = "cpu"
-
+    # Trainer
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=dev_dataset,
-        compute_metrics=trainer_functions.compute_metrics,
+        tokenizer=tokenizer,
+        compute_metrics=compute_metrics,
         callbacks=[
             SaveEveryNEpochsCallback(save_every=save_every),
             EarlyStoppingCallback(early_stopping_patience=early_stopping)
-        ]
+        ],
     )
 
-    # -------------------------------------------------------------------
-    # Pre-training evaluation
-    # -------------------------------------------------------------------
-    print("Evaluating model before finetuning.")
-    evaluation.run_eval(
-        data=eval_lines,
-        model_path=modelName,
-        tokenizer_name=modelName,
-        verbose=False,
-        delimiter=delimiter
-    )
-
-    # -------------------------------------------------------------------
     # Train
-    # -------------------------------------------------------------------
-    print("Starting training")
     trainer.train()
+
     print("End of training")
 
-    # -------------------------------------------------------------------
-    # Select best checkpoint
-    # -------------------------------------------------------------------
-    best_precision_step, best_step_metrics = utils.get_best_step(trainer.state.log_history)
-    all_checkpoints = glob.glob(f"results_{out_name}/epoch{num_train_epochs}_bs{batch_size}/checkpoint-*")
-    as_ints = [int(path.split("-")[-1]) for path in all_checkpoints]
-    all_diffs = [abs(best_precision_step - ckpt) for ckpt in as_ints]
-    best_model_path = all_checkpoints[all_diffs.index(min(all_diffs))]
-
-    print(f"Best model path according to precision: {best_model_path}")
-    print(f"Full metrics: {best_step_metrics}")
-
     # Final eval
-    eval_results = evaluation.run_eval(
-        data=eval_lines,
-        model_path=best_model_path,
-        tokenizer_name=tokenizer.name_or_path,
-        verbose=False,
-        delimiter=delimiter
+    print("Performing regexp based tokenization evaluation")
+    evaluation_synt = utils.evaluate_tokenization_with_regexp(eval_lines, delimiter)
+    print(evaluation_synt)
+
+    print("Performing bert-based tokenization evaluation")
+    evaluation_bert = utils.evaluate_tokenization_with_bert(
+        trainer, eval_dataset, tokenizer, delimiter
     )
-
-    # Rename best checkpoint
-    new_best_path = f"results_{out_name}/epoch{num_train_epochs}_bs{batch_size}/best"
-    try:
-        shutil.rmtree(new_best_path)
-    except FileNotFoundError:
-        pass
-    os.rename(best_model_path, new_best_path)
-
-    # Save metadata
-    with open(f"{new_best_path}/model_name", "w") as model_name_file:
-        model_name_file.write(modelName)
-    with open(f"{new_best_path}/eval.txt", "w") as evaluation_results:
-        evaluation_results.write(eval_results)
-    with open(f"{new_best_path}/metrics.json", "w") as metrics_file:
-        json.dump(best_step_metrics, metrics_file)
-
-    print(f"\n\nBest model can be found at : {new_best_path}")
-    print(f"Cleanup tip: remove extra checkpoints with\n"
-          f"   rm -r results_{out_name}/epoch{num_train_epochs}_bs{batch_size}/checkpoint-*")
-
-    return new_best_path
+    print(evaluation_bert)
 
 
 # -------------------------------------------------------------------
 # Entry point
 # -------------------------------------------------------------------
-if __name__ == '__main__':
+if __name__ == "__main__":
+    from transformers import set_seed
+
     set_seed(42)
 
     parser = argparse.ArgumentParser()
@@ -282,13 +247,35 @@ if __name__ == '__main__':
                         help="Use bfloat16 precision if supported")
 
     # Noise-related arguments
-    parser.add_argument("--noise", action="store_true", help="Apply noise augmentation to training dataset")
-    parser.add_argument("--noise_prob", type=float, default=0.3, help="Probability of applying noise")
-    parser.add_argument("--noise_level", type=str, default="medium",
-                        choices=["light", "medium", "heavy"], help="Noise intensity level")
-    parser.add_argument("--debug_noise", action="store_true", help="Debug: print noisy samples")
-    parser.add_argument("--lang", type=str, required=True,
-                        help="Language code for the dataset (e.g. fr, pt, la, es, it, ca, en).")
+    parser.add_argument(
+        "--noise",
+        action="store_true",
+        help="Apply noise augmentation to training dataset (default: OFF). "
+    )
+    parser.add_argument(
+        "--noise_prob",
+        type=float,
+        default=0.3,
+        help="Probability of applying noise to a training example (only used if --noise)."
+    )
+    parser.add_argument(
+        "--noise_level",
+        type=str,
+        default="medium",
+        choices=["light", "medium", "heavy"],
+        help="Noise intensity level (only used if --noise)."
+    )
+    parser.add_argument(
+        "--debug_noise",
+        action="store_true",
+        help="Debug mode: print up to 5 noisy examples to check augmentation."
+    )
+    parser.add_argument(
+        "--lang",
+        type=str,
+        required=True,
+        help="Language code for the dataset (e.g. fr, pt, la, es, it, ca, en)."
+    )
 
     args = parser.parse_args()
     use_cpu = (args.device == "cpu")
@@ -310,5 +297,4 @@ if __name__ == '__main__':
         noise_prob=args.noise_prob,
         noise_level=args.noise_level,
         debug_noise=args.debug_noise,
-        lang=args.lang
     )
