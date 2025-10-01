@@ -130,7 +130,16 @@ def training_trainer(
     )
 
     # Training corpus: always clean here
-    train_lines = utils.json_corpus_to_lines(train_dataset, keep_punct=True)
+    #train_lines = utils.json_corpus_to_lines(train_dataset, keep_punct=True)
+    train_lines = utils.json_corpus_to_lines(
+    train_dataset,
+    keep_punct=True,
+    apply_noise_flag=apply_noise,
+    noise_prob=noise_prob,
+    noise_level=noise_level,
+    debug_noise=debug_noise
+)
+
 
     # # Extract raw texts
     # train_texts = [e["example"] for e in train_lines]
