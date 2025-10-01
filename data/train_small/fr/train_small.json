@@ -1,0 +1,51 @@
+{
+    "metadata": {
+        "name": "train",
+        "delimiter": "\u00a3",
+        "examples_number": 1155,
+        "segments": 9675,
+        "chars": 345793,
+        "words": 81433,
+        "langs": [
+            "fr"
+        ]
+    },
+    "examples": [
+        {
+            "example": "mercierent moult. \u00a3Et lors leur dist elle:\u00ab \u00a3Enfans, \u00a3je vous ay envoy\u00e9 en vostre vaissel assez or et argent monnoy\u00e9 \u00a3pour bien tenir vostre estat, \u00a3et bien paier voz gens pour IIIJ. ans. \u00a3Et n'ayez doubte, \u00a3vous avez assez bescuit, eaue doulce, vin aigre, chars salees, poissons salez et de",
+            "lang": "fr"
+        },
+        {
+            "example": "se il se herberjoient en la ville, \u00a3il doteroient la mellee d'als et des Grius, \u00a3et bien en porroit la cit\u00e9 estre destruite. \u00a3Et il dient \u00a3que il l'avoient tant servi en mainte maniere \u00a3que il ne refuseroient ja cose \u00a3qu'il lor proiassent. \u00a3Ensi s'en alerent herbergier d'altre part. \u00a3Ensi",
+            "lang": "fr"
+        },
+        {
+            "example": "enchant\u00e9, \u00a3et les barons du pays aussi, \u00a3car les lettres en sont ja passees, \u00a3et y pendent leurs seaulx avec le seel du roy. \u00a3Par foy, \u00a3dist ly roys, \u00a3cy a grant descongneue, \u00a3se c'est verit\u00e9s. \u00bb\u00a3Et Jossellins et les autres \u00a3qui estoient de son accort, \u00a3lui jurerent que c'estoit",
+            "lang": "fr"
+        },
+        {
+            "example": "remet Boort la main , \u00a3mes il n'i puet riens fere \u00a3qui vaille , \u00a3et quant il voient ce \u00a3si dient a Galaad : \u00ab \u00a3Sire \u00a3essaiez a ceste espee , \u00a3car nos savons bien \u00a3que vos acheverez ceste aventure \u00a3a ce que nos i avons failli . \u00bb \u00a3Et",
+            "lang": "fr"
+        },
+        {
+            "example": "ja tant al\u00e9 \u00a3que li setembre aprocha.  \u00a3Or oiez une des plus grant merveilles et des greignor aventures \u00a3que vos onques o\u00efsiez. \u00a3A cel tens ot un empereor en Costantinoble \u00a3qui avoit a nom Sursac\u00a0; \u00a3et si avoit un frere \u00a3qui avoit a nom Alexis, \u00a3que il avoit rachat\u00e9",
+            "lang": "fr"
+        },
+        {
+            "example": "\u00a3qui a le requeste du roy hantoit le palays \u00a3et fu depuis evesquez de Laon.  \u00a3Ceste royne abati \u00a3et osta le pestilense de simonie. \u00a3Elle fist cesser les subsides et les maletottez du royamme \u00a3qui grevoit tres fort le menu peuple. \u00a3Elle fist faire a .ij. lieuwes de Paris",
+            "lang": "fr"
+        },
+        {
+            "example": "fiebles, et d'un hardis vil et recreant! \u00a3Sire, \u00a3ceste response voz ai je mis devant, \u00a3por ce que vos me diestes \u00a3que m. Lancelot seroit contre moi; \u00a3et c'il hi vient, \u00a3bien soit il venus! \u00a3Car je me sent en si droite querelle \u00a3que il ne a home au monde",
+            "lang": "fr"
+        },
+        {
+            "example": "\u00a3Sire , \u00a3fet il , \u00a3nanil , \u00a3ainz m'a orendroit esveilli\u00e9 une avision merveilleuse \u00a3que j'ai veue en mon dormant . - \u00a3Par foi , \u00a3fet mes sires Gauvains , \u00a3ausi vos di je . \u00a3Je ai veue une trop merveilleuse avision \u00a3donc je me sui esveilliez , \u00a3si vos",
+            "lang": "fr"
+        },
+        {
+            "example": "pour ce que souffrir ne vouloye la bourderie ne la faulset\u00e9 des gens de cy aval, \u00a3je e\u00fcsse perdu la vie, \u00a3se je ne me fusse faiz contraiz, \u00a3et a bien .VII. ans ou plus \u00a3que je premier le contrefiz. \u00a3Or ay je tant fait, \u00a3se tu vueil, \u00a3que je",
+            "lang": "fr"
+        }
+    ]
+}

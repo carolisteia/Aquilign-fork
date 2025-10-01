@@ -1,0 +1,19 @@
+{
+    "metadata": {
+        "name": "test",
+        "delimiter": "\u00a3",
+        "examples_number": 144,
+        "segments": 1234,
+        "chars": 42861,
+        "words": 10089,
+        "langs": [
+            "fr"
+        ]
+    },
+    "examples": [
+        {
+            "example": "li contes Richart.  \u00a3Mais li contes sot tant faire vers le despot \u00a3qu'il s'acorderent bien ensemble, \u00a3par tel maniere que li contes li envoia son filz et sa fille, la dame dou conte Jehan, \u00a3jusques adonc que li contes Richart fu ocis a Clarence par .j. sien chevalier \u00a3que",
+            "lang": "fr"
+        }
+    ]
+}

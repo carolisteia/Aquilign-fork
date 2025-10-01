@@ -1,0 +1,23 @@
+{
+    "metadata": {
+        "name": "dev",
+        "delimiter": "\u00a3",
+        "examples_number": 144,
+        "segments": 1252,
+        "chars": 44187,
+        "words": 10368,
+        "langs": [
+            "fr"
+        ]
+    },
+    "examples": [
+        {
+            "example": "gent \u00a3qui s'en estoient fuy ainxi villainement.  \u00a3Non pour tant, \u00a3pour ce que il savoient \u00a3que le despot n'estoit mie la pr\u00e8s, \u00a3si geterent une grant gent en terre, \u00a3qui coururent le pays dou despot, \u00a3et pour prandre forage\u00a0; \u00a3liquel furent jusques a la Vagenetie et a la contr\u00e9e",
+            "lang": "fr"
+        },
+        {
+            "example": "prest. \u00bb \u00a3Mes les aventures avienent \u00a3ensi con Dieu plaist\u00a0: \u00a3ne n'orent nul pooir \u00a3que plus assemblassent en l'ost. \u00a3Ce fu mult granz domages, \u00a3que mult estoient preu et vaillant. \u00a3Et ensi se partirent, \u00a3si tint cascuns sa voie.  \u00a3Tant chevaucha Joffrois li mareschaus par ses jornees \u00a3que il",
+            "lang": "fr"
+        }
+    ]
+}
